@@ -1,0 +1,25 @@
+{
+  "name": "Claude Code Development Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "PYTHON_VERSION": "3.12",
+      "POETRY_VERSION": "1.8.5"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "ms-python.python"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "remoteUser": "vscode",
+  "runArgs": [
+    "--network=host"
+  ]
+}
