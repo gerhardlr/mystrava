@@ -1,3 +1,20 @@
+[project]
+name = "strava"
+version = "0.1.0"
+description = "Strava CSV exporter"
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.32",
+    "python-dotenv>=1.2.2",
+    "pandas>=2.0",
+    "astral>=3.2",
+    "timezonefinder>=6.0",
+    "openpyxl>=3.1",
+    "fastapi>=0.115.0",
+    "mangum>=0.17.0",
+    "uvicorn[standard]>=0.32.0",
+]
+
 [tool.poetry]
 name = "strava"
 version = "0.1.0"
@@ -5,15 +22,6 @@ description = "Strava CSV exporter"
 authors = ["Gerhard le Roux <gerhard.leroux@vastech.co.za>"]
 readme = "README.md"
 packages = [{ include = "strava" }]
-
-[tool.poetry.dependencies]
-python = "^3.12"
-requests = "^2.32"
-python-dotenv = "^1.2.2"
-pandas = "^2.0"
-astral = "^3.2"
-timezonefinder = "^6.0"
-openpyxl = "^3.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
