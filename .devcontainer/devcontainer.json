@@ -22,6 +22,9 @@
   "runArgs": [
     "--network=host"
   ],
+  "remoteEnv": {
+    "CLAUDE_CONFIG_DIR": "${containerWorkspaceFolder}/.claude"
+  },
   "mounts": [
     "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached,readonly"
   ]
