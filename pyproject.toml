@@ -2,6 +2,7 @@
 name = "strava"
 version = "0.1.0"
 description = "Strava CSV exporter"
+requires-python = ">=3.12"
 dependencies = [
     "requests>=2.32",
     "python-dotenv>=1.2.2",
