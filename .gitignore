@@ -2,7 +2,7 @@
 .env
 .env.local
 /frontend/.env.local
-/frontend/mock_data
+# mock_data
 .strava_tokens.json
 
 # Python
