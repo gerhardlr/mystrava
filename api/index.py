@@ -18,8 +18,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 
+import pandas as pd
 from strava.api import fetch_all_activities
-from strava.export import activity_to_row, to_dataframe, extract_sailing_logbook
+from strava.export import activity_to_row, to_dataframe, hours_after_sunset
+
+KM_TO_NM = 1 / 1.852
 
 app = FastAPI(title="Strava API", version="1.0.0")
 
@@ -80,10 +83,26 @@ async def get_sailing_activities(authorization: Optional[str] = Header(None)):
     try:
         activities = fetch_all_activities(token)
         df = to_dataframe(activities)
-        sailing_df = extract_sailing_logbook(df)
+
+        after_sunset = hours_after_sunset(df)
+        sailing_mask = df["sport_type"] == "Sail"
+        sailing = df[sailing_mask].copy()
+
+        sailing["from"] = sailing["start_date_local"]
+        sailing["to"] = sailing["start_date_local"] + pd.to_timedelta(sailing["elapsed_time_min"], unit="min")
+        sailing["distance_nm"] = (sailing["distance_km"] * KM_TO_NM).round(2)
+        sailing["moving_time_hr"] = (sailing["moving_time_min"] / 60).round(2)
+        sailing["elapsed_time_hr"] = (sailing["elapsed_time_min"] / 60).round(2)
+        sailing["after_sunset_hr"] = (after_sunset[sailing_mask].values / 60).round(2)
+
+        logbook = sailing[[
+            "start_date_local", "from", "to", "name",
+            "distance_nm", "moving_time_hr", "elapsed_time_hr", "after_sunset_hr",
+        ]].reset_index(drop=True)
+
         return {
-            "activities": sailing_df.to_dict(orient="records"),
-            "count": len(sailing_df),
+            "activities": logbook.to_dict(orient="records"),
+            "count": len(logbook),
         }
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
