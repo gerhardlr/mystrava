@@ -21,7 +21,7 @@ export interface Activity {
 
 export interface SailingActivity {
   name: string;
-  sport_type: string;
+  sport_type?: string;
   start_date_local: string;
   distance_nm: number;
   moving_time_hr: number;

@@ -3,8 +3,13 @@ import { redirect } from "next/navigation";
 import { fetchSailingActivities } from "@/lib/api";
 import Alert from "@mui/material/Alert";
 import SailingLogbook from "@/components/SailingLogbook";
+import mockData from "@/mock_data/mock_sailing_data.json";
 
 export default async function SailingPage() {
+  if (process.env.NEXT_PUBLIC_USE_MOCK === "true") {
+    return <SailingLogbook activities={mockData.activities} />;
+  }
+
   const session = await auth();
   if (!session?.accessToken) redirect("/api/auth/signin");
 
