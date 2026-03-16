@@ -34,6 +34,7 @@ uv = ">=0.5"
 strava-export = "strava.cli:main"
 strava-sailing-logbook = "strava.cli:sailing_logbook"
 strava-api = "api.index:run_dev"
+strava-api-client = "strava.client:main"
 
 [build-system]
 requires = ["poetry-core"]
