@@ -17,8 +17,10 @@ from timezonefinder import TimezoneFinder
 CSV_FIELDS = [
     "id", "name", "sport_type", "start_date_local",
     "start_lat", "start_lon",
-    "distance_km", "moving_time_min", "elapsed_time_min",
+    "distance_km", "moving_time_min", "elapsed_time_min", "max_speed_kn", "avg_speed_kn",
 ]
+
+M_S_TO_KN = 1.94384  # metres per second → knots
 
 KM_TO_NM = 1 / 1.852  # 1 nautical mile = 1.852 km
 
@@ -68,6 +70,8 @@ def activity_to_row(a: dict) -> dict:
         "distance_km": round(a.get("distance", 0) / 1000, 2),
         "moving_time_min": round(a.get("moving_time", 0) / 60, 1),
         "elapsed_time_min": round(a.get("elapsed_time", 0) / 60, 1),
+        "max_speed_kn": round(a.get("max_speed", 0) * M_S_TO_KN, 1),
+        "avg_speed_kn": round(a.get("average_speed", 0) * M_S_TO_KN, 1),
     }
 
 

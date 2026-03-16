@@ -96,8 +96,8 @@ async def get_sailing_activities(authorization: Optional[str] = Header(None)):
         sailing["after_sunset_hr"] = (after_sunset[sailing_mask].values / 60).round(2)
 
         logbook = sailing[[
-            "start_date_local", "from", "to", "name",
-            "distance_nm", "moving_time_hr", "elapsed_time_hr", "after_sunset_hr",
+            "id", "start_date_local", "from", "to", "name",
+            "distance_nm", "moving_time_hr", "elapsed_time_hr", "after_sunset_hr", "max_speed_kn", "avg_speed_kn",
         ]].reset_index(drop=True)
 
         return {

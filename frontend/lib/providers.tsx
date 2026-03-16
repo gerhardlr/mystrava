@@ -5,7 +5,6 @@ import { AppProvider } from "@toolpad/core/AppProvider";
 import { SessionProvider, signIn, signOut } from "next-auth/react";
 import type { Session } from "next-auth";
 import DashboardIcon from "@mui/icons-material/Dashboard";
-import DirectionsRunIcon from "@mui/icons-material/DirectionsRun";
 import SailingIcon from "@mui/icons-material/Sailing";
 import type { Navigation } from "@toolpad/core";
 import theme from "@/lib/theme";
@@ -19,11 +18,6 @@ const NAVIGATION: Navigation = [
     segment: "dashboard",
     title: "Dashboard",
     icon: <DashboardIcon />,
-  },
-  {
-    segment: "dashboard/activities",
-    title: "All Activities",
-    icon: <DirectionsRunIcon />,
   },
   {
     segment: "dashboard/sailing",

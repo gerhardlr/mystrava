@@ -20,6 +20,7 @@ export interface Activity {
 }
 
 export interface SailingActivity {
+  id?: number;
   name: string;
   sport_type?: string;
   start_date_local: string;
@@ -27,6 +28,8 @@ export interface SailingActivity {
   moving_time_hr: number;
   elapsed_time_hr: number;
   after_sunset_hr?: number | null;
+  max_speed_kn?: number | null;
+  avg_speed_kn?: number | null;
   from?: string | null;
   to?: string | null;
 }

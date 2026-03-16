@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { fetchActivities } from "@/lib/api";
+import { fetchSailingActivities } from "@/lib/api";
+import { ActivityRow, Speed } from "@/lib/activity-values";
 import Typography from "@mui/material/Typography";
 import Grid from "@mui/material/Grid2";
 import Card from "@mui/material/Card";
@@ -11,31 +12,29 @@ export default async function DashboardPage() {
   const session = await auth();
   if (!session?.accessToken) redirect("/api/auth/signin");
 
-  let stats = { total: 0, runs: 0, rides: 0, sails: 0, totalKm: 0 };
+  let statCards: { label: string; value: string | number }[] = [];
   let error: string | null = null;
 
   try {
-    const data = await fetchActivities(session.accessToken);
-    stats = {
-      total: data.count,
-      runs: data.activities.filter((a) => a.sport_type === "Run").length,
-      rides: data.activities.filter((a) => a.sport_type === "Ride").length,
-      sails: data.activities.filter((a) => a.sport_type === "Sail").length,
-      totalKm: Math.round(
-        data.activities.reduce((s, a) => s + a.distance_km, 0)
-      ),
-    };
+    const sailingData = await fetchSailingActivities(session.accessToken);
+    const sailRows    = sailingData.activities.map((a, i) => ActivityRow.fromSailingActivity(a, i));
+
+    const totalNm       = ActivityRow.sum(sailRows, "distance").toFixed(1);
+    const typicalSailStart = ActivityRow.typicalTime(sailRows.map((r) => r.from?.value)) ?? "—";
+    const typicalSailEnd   = ActivityRow.typicalTime(sailRows.map((r) => r.to?.value.to)) ?? "—";
+    const medianSpeed      = ActivityRow.median(sailRows.map((r) => r.avgSpeed?.value));
+    const typicalSpeed     = medianSpeed != null ? new Speed(medianSpeed).render() : "—";
+
+    statCards = [
+{ label: "Total Sailed Activities", value: sailRows.length },
+      { label: "Total Sailed (nm)",       value: `${totalNm} nm` },
+      { label: "Typical Sail Start",      value: typicalSailStart },
+      { label: "Typical Sail End",        value: typicalSailEnd },
+      { label: "Typical Speed",           value: typicalSpeed },
+    ];
   } catch (e) {
     error = e instanceof Error ? e.message : "Failed to load activities";
   }
-
-  const statCards = [
-    { label: "Total Activities", value: stats.total },
-    { label: "Runs", value: stats.runs },
-    { label: "Rides", value: stats.rides },
-    { label: "Sails", value: stats.sails },
-    { label: "Total Distance (km)", value: stats.totalKm.toLocaleString() },
-  ];
 
   return (
     <>
@@ -51,7 +50,7 @@ export default async function DashboardPage() {
 
       <Grid container spacing={2}>
         {statCards.map(({ label, value }) => (
-          <Grid key={label} size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
+          <Grid key={label} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="h4" fontWeight="bold">
