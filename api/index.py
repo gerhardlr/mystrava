@@ -17,7 +17,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from mangum import Mangum
 
 from strava.api import fetch_all_activities
 from strava.export import activity_to_row, to_dataframe, extract_sailing_logbook
@@ -83,9 +82,3 @@ async def get_sailing_activities(authorization: Optional[str] = Header(None)):
         }
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-
-
-# ---------------------------------------------------------------------------
-# Vercel ASGI entry point
-# ---------------------------------------------------------------------------
-handler = Mangum(app, lifespan="off")
