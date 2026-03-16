@@ -68,6 +68,11 @@ async def get_activities(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+def run_dev():
+    import uvicorn
+    uvicorn.run("api.index:app", reload=True, port=8000)
+
+
 @app.get("/api/activities/sailing")
 async def get_sailing_activities(authorization: Optional[str] = Header(None)):
     """Return sailing activities enriched with logbook data (distance in nm, sunset hours)."""
