@@ -9,8 +9,12 @@ export const authConfig: NextAuthConfig = {
     }),
   ],
   callbacks: {
-    authorized({ auth }) {
-      return !!auth?.user;
+    authorized({ auth, request }) {
+      const { pathname } = request.nextUrl;
+      if (pathname.startsWith("/dashboard")) {
+        return !!auth?.user;
+      }
+      return true;
     },
   },
 };
