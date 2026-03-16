@@ -27,6 +27,7 @@ python = "^3.12"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
+uv = ">=0.5"
 
 [tool.poetry.scripts]
 strava-export = "strava.cli:main"
