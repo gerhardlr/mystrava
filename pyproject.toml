@@ -2,7 +2,6 @@
 name = "strava"
 version = "0.1.0"
 description = "Strava CSV exporter"
-requires-python = ">=3.12"
 dependencies = [
     "requests>=2.32",
     "python-dotenv>=1.2.2",
@@ -20,7 +19,11 @@ version = "0.1.0"
 description = "Strava CSV exporter"
 authors = ["Gerhard le Roux <gerhard.leroux@vastech.co.za>"]
 readme = "README.md"
+
 packages = [{ include = "strava" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
@@ -28,6 +31,7 @@ pytest = "^8.0"
 [tool.poetry.scripts]
 strava-export = "strava.cli:main"
 strava-sailing-logbook = "strava.cli:sailing_logbook"
+strava-api = "api.index:run_dev"
 
 [build-system]
 requires = ["poetry-core"]
