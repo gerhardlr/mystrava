@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { LineChart } from "@mui/x-charts/LineChart";
+import { ChartsReferenceLine } from "@mui/x-charts/ChartsReferenceLine";
 import type { TrackPoint, Tack } from "@/lib/api";
 
 // Plotly does not support SSR — load client-side only
@@ -86,12 +87,14 @@ function XYChart({
   yData,
   yLabel,
   color,
+  tacks = [],
 }: {
   title: string;
   xData: number[];
   yData: (number | null)[];
   yLabel: string;
   color: string;
+  tacks?: Tack[];
 }) {
   return (
     <Box>
@@ -104,7 +107,22 @@ function XYChart({
         series={[{ data: yData, color, showMark: false, connectNulls: false }]}
         height={260}
         margin={{ left: 60, right: 20, top: 10, bottom: 40 }}
-      />
+      >
+        {tacks.map((t) => (
+          <ChartsReferenceLine
+            key={t.index}
+            x={t.start_time_s}
+            lineStyle={{
+              stroke: t.direction === "port" ? "#d32f2f" : "#2e7d32",
+              strokeWidth: 2,
+              strokeDasharray: "4 3",
+            }}
+            labelStyle={{ fontSize: 10 }}
+            label={`T${t.index}`}
+            labelAlign="end"
+          />
+        ))}
+      </LineChart>
     </Box>
   );
 }
@@ -165,6 +183,7 @@ export default function ActivityTrackCharts({ points, tacks }: Props) {
         yData={points.map((p) => p.rotation_deg)}
         yLabel="° (+ stbd)"
         color="#388e3c"
+        tacks={tacks}
       />
       <XYChart
         title="Rate of Turn over time"
