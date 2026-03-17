@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 
 from strava.auth import get_valid_token, run_oauth, save_tokens
 from strava.navigation import compute_track
+from strava.export import save_track_xlsx
 
 load_dotenv()
 
@@ -130,6 +131,11 @@ def main():
     p_track.add_argument("--limit", type=int, default=20, metavar="N",
                          help="Max points to print (default: 20, 0 = all)")
 
+    p_export = sub.add_parser("export-track", help="Export GPS track navigation data to Excel")
+    p_export.add_argument("activity_id", type=int, help="Strava activity ID")
+    p_export.add_argument("--out", default=None, metavar="FILE",
+                          help="Output .xlsx path (default: track_<id>.xlsx)")
+
     args = parser.parse_args()
     client = StravaApiClient(base_url=args.base_url)
 
@@ -145,6 +151,10 @@ def main():
         points = client.track(args.activity_id)
         sample = points[:args.limit] if args.limit else points
         print(json.dumps({"total_points": len(points), "points": sample}, indent=2))
+    elif args.command == "export-track":
+        points = client.track(args.activity_id)
+        out = args.out or f"track_{args.activity_id}.xlsx"
+        save_track_xlsx(points, out)
 
 
 if __name__ == "__main__":

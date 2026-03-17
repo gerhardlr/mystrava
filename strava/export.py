@@ -268,6 +268,23 @@ def save_sailing_logbook_xlsx(df: pd.DataFrame, path: str):
     print(f"Saved {len(logbook)} sailing activities to {path}")
 
 
+def save_track_xlsx(points: list[dict], path: str):
+    """Write GPS track navigation data to an Excel (.xlsx) file.
+
+    Args:
+        points: List of track point dicts as returned by StravaApiClient.track().
+                Each dict contains index, lat, lon, time_s, bearing_deg,
+                rotation_deg, and rot_speed_deg_min.
+        path:   Destination ``.xlsx`` file path. Created or overwritten.
+    """
+    df = pd.DataFrame(points, columns=[
+        "index", "lat", "lon", "time_s",
+        "bearing_deg", "rotation_deg", "rot_speed_deg_min",
+    ])
+    df.to_excel(path, index=False, engine="openpyxl")
+    print(f"Saved {len(df)} track points to {path}")
+
+
 def save_csv(activities: list[dict], path: str):
     """Write a list of Strava activities to a CSV file.
 
