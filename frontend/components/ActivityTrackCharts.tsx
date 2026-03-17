@@ -3,8 +3,6 @@
 import dynamic from "next/dynamic";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import { LineChart } from "@mui/x-charts/LineChart";
-import { ChartsReferenceLine } from "@mui/x-charts/ChartsReferenceLine";
 import type { TrackPoint, Tack } from "@/lib/api";
 
 // Plotly does not support SSR — load client-side only
@@ -96,41 +94,56 @@ function XYChart({
   color: string;
   tacks?: Tack[];
 }) {
+  const shapes: Partial<Plotly.Shape>[] = tacks.map((t) => ({
+    type: "rect",
+    xref: "x",
+    yref: "paper",
+    x0: t.start_time_s,
+    x1: t.end_time_s,
+    y0: 0,
+    y1: 1,
+    fillcolor: t.direction === "port" ? "#d32f2f" : "#2e7d32",
+    opacity: 0.5,
+    line: { width: 0 },
+  }));
+
+  const annotations: Partial<Plotly.Annotations>[] = tacks.map((t) => ({
+    x: (t.start_time_s + t.end_time_s) / 2,
+    yref: "paper",
+    y: 1,
+    text: `T${t.index}`,
+    showarrow: false,
+    font: { size: 10 },
+    yanchor: "bottom",
+  }));
+
   return (
     <Box>
       <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
         {title}
       </Typography>
-      <LineChart
-        xAxis={[{ data: xData, label: "Time (s)", tickMinStep: 60 }]}
-        yAxis={[{ label: yLabel }]}
-        series={[{ data: yData, color, showMark: false, connectNulls: false }]}
-        height={260}
-        margin={{ left: 60, right: 20, top: 10, bottom: 40 }}
-      >
-        {tacks.flatMap((t) => {
-          const stroke = t.direction === "port" ? "#d32f2f" : "#2e7d32";
-          const lineStyle = { stroke, strokeWidth: 2, strokeDasharray: "4 3" };
-          return [
-            <ChartsReferenceLine
-              key={`${t.index}-start`}
-              x={t.start_time_s}
-              lineStyle={lineStyle}
-              labelStyle={{ fontSize: 10 }}
-              label={`T${t.index} start`}
-              labelAlign="end"
-            />,
-            <ChartsReferenceLine
-              key={`${t.index}-end`}
-              x={t.end_time_s}
-              lineStyle={lineStyle}
-              labelStyle={{ fontSize: 10 }}
-              label={`T${t.index} end`}
-              labelAlign="start"
-            />,
-          ];
-        })}
-      </LineChart>
+      <Plot
+        data={[{
+          type: "scatter",
+          x: xData,
+          y: yData,
+          mode: "lines",
+          line: { color, width: 1.5 },
+          connectgaps: false,
+        } as Plotly.Data]}
+        layout={{
+          xaxis: { title: { text: "Time (s)" } },
+          yaxis: { title: { text: yLabel } },
+          shapes,
+          annotations,
+          margin: { t: 20, b: 50, l: 60, r: 20 },
+          paper_bgcolor: "transparent",
+          plot_bgcolor: "transparent",
+          showlegend: false,
+        } as unknown as Plotly.Layout}
+        config={CONFIG}
+        style={{ width: "100%", height: 280 }}
+      />
     </Box>
   );
 }
