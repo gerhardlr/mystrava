@@ -186,24 +186,39 @@ def detect_tacks(
     raw_bearings = [p.bearing_deg for p in points]
     smooth = _smooth_bearings(raw_bearings, smooth_window)
 
+    # Pre-compute per-step rotations from smoothed bearings
+    smooth_rot: list[float | None] = [None]
+    for k in range(1, n):
+        if smooth[k] is not None and smooth[k - 1] is not None:
+            smooth_rot.append(delta_bearing(smooth[k - 1], smooth[k]))
+        else:
+            smooth_rot.append(None)
+
     tacks: list[Tack] = []
     i = 0
     skip_until = 0
 
     while i < n:
-        if i < skip_until or smooth[i] is None:
+        # Only start a tack candidate where a significant rotation is already happening
+        if (
+            i < skip_until
+            or smooth[i] is None
+            or smooth_rot[i] is None
+            or abs(smooth_rot[i]) < 2.0
+        ):
             i += 1
             continue
 
-        # Expand a window forward from i, accumulating signed rotation
+        # The direction of this tack is set by the first significant step
+        direction_sign = 1 if smooth_rot[i] > 0 else -1
+
         best_j: int | None = None
-        cumulative = 0.0
-        direction_sign: int | None = None  # +1 starboard, -1 port
+        cumulative = abs(smooth_rot[i])
         valid = True
 
         j = i + 1
         while j < n:
-            if smooth[j] is None:
+            if smooth[j] is None or smooth_rot[j] is None:
                 j += 1
                 continue
 
@@ -211,23 +226,16 @@ def detect_tacks(
             if dt > max_duration_s:
                 break
 
-            step = delta_bearing(smooth[j - 1] if smooth[j - 1] is not None else smooth[i], smooth[j])
-
-            # Establish turn direction on first significant step
-            if direction_sign is None and abs(step) > 2.0:
-                direction_sign = 1 if step > 0 else -1
-
-            if direction_sign is not None:
-                projected = step * direction_sign
-                if projected >= 0:
-                    cumulative += projected
-                elif abs(projected) > reversal_tolerance:
-                    # Significant counter-rotation — not a clean tack
-                    valid = False
-                    break
+            projected = smooth_rot[j] * direction_sign
+            if projected >= 0:
+                cumulative += projected
+            elif abs(projected) > reversal_tolerance:
+                valid = False
+                break
 
             if cumulative >= min_angle and valid:
-                best_j = j  # keep extending to find the widest valid window
+                best_j = j
+                break  # stop at first crossing — pre/post windows measure stable headings
 
             j += 1
 
@@ -239,6 +247,31 @@ def detect_tacks(
                 i += 1
                 continue
 
+            # Average bearing over the 10 s window before and after the tack
+            # for a stable, noise-free start/end heading.
+            pre_bearings = [
+                smooth[k] for k in range(n)
+                if smooth[k] is not None
+                and points[si].time_s - 10.0 <= points[k].time_s < points[si].time_s
+            ]
+            post_bearings = [
+                smooth[k] for k in range(n)
+                if smooth[k] is not None
+                and points[ei].time_s < points[k].time_s <= points[ei].time_s + 10.0
+            ]
+            pre_bearing  = round(_circular_mean(pre_bearings), 1)  if pre_bearings  else (round(smooth[si], 1) if smooth[si] is not None else None)
+            post_bearing = round(_circular_mean(post_bearings), 1) if post_bearings else (round(smooth[ei], 1) if smooth[ei] is not None else None)
+
+            # Recompute angle_deg from the stable pre/post windows
+            if pre_bearing is not None and post_bearing is not None:
+                stable_angle = round(abs(delta_bearing(pre_bearing, post_bearing)), 1)
+            else:
+                stable_angle = round(net_angle, 1)
+
+            if stable_angle < min_angle:
+                i += 1
+                continue
+
             speed_values = [p.speed_kn for p in points[si:ei + 1] if p.speed_kn is not None]
             avg_speed = sum(speed_values) / len(speed_values) if speed_values else None
 
@@ -247,10 +280,10 @@ def detect_tacks(
                 start_time_s=points[si].time_s,
                 end_time_s=points[ei].time_s,
                 duration_s=round(points[ei].time_s - points[si].time_s, 1),
-                angle_deg=round(net_angle, 1),
+                angle_deg=stable_angle,
                 direction="starboard" if direction_sign == 1 else "port",
-                start_bearing_deg=round(smooth[si], 1) if smooth[si] is not None else None,
-                end_bearing_deg=round(smooth[ei], 1) if smooth[ei] is not None else None,
+                start_bearing_deg=pre_bearing,
+                end_bearing_deg=post_bearing,
                 avg_speed_kn=round(avg_speed, 2) if avg_speed is not None else None,
                 start_speed_kn=round(points[si].speed_kn, 2) if points[si].speed_kn is not None else None,
                 end_speed_kn=round(points[ei].speed_kn, 2) if points[ei].speed_kn is not None else None,
