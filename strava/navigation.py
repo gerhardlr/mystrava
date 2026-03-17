@@ -155,7 +155,7 @@ def compute_track(
 
 def detect_tacks(
     points: list[TrackPoint],
-    min_angle: float = 90.0,
+    min_angle: float = 60.0,
     max_duration_s: float = 120.0,
     smooth_window: int = 5,
     reversal_tolerance: float = 30.0,
@@ -174,7 +174,7 @@ def detect_tacks(
 
     Args:
         points:              TrackPoint list from compute_track().
-        min_angle:           Minimum total bearing change to count as a tack (default 90°).
+        min_angle:           Minimum total bearing change to count as a tack (default 60°).
         max_duration_s:      Maximum duration for a single tack (default 120 s).
         smooth_window:       Rolling window size for circular-mean bearing smoothing.
         reversal_tolerance:  Maximum counter-rotation allowed within a tack (default 30°).
