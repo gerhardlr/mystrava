@@ -51,7 +51,7 @@ export default function TacksTable({ tacks }: { tacks: Tack[] }) {
         getRowId={(r) => r.index}
         hideFooter={tacks.length <= 100}
         disableRowSelectionOnClick
-        sx={{ height: "100%" }}
+        sx={{ height: "auto" }}
       />
     </Box>
   );
