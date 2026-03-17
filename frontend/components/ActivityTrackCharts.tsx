@@ -214,6 +214,14 @@ export default function ActivityTrackCharts({ points, tacks }: Props) {
         color="#1976d2"
         tacks={tacks}
       />
+      <XYChart
+        title="Speed over time"
+        xData={timeAxis}
+        yData={points.map((p) => p.speed_kn)}
+        yLabel="kn"
+        color="#7b1fa2"
+        tacks={tacks}
+      />
     </Box>
   );
 }
