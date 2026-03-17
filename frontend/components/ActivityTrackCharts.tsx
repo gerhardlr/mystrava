@@ -108,20 +108,28 @@ function XYChart({
         height={260}
         margin={{ left: 60, right: 20, top: 10, bottom: 40 }}
       >
-        {tacks.map((t) => (
-          <ChartsReferenceLine
-            key={t.index}
-            x={t.start_time_s}
-            lineStyle={{
-              stroke: t.direction === "port" ? "#d32f2f" : "#2e7d32",
-              strokeWidth: 2,
-              strokeDasharray: "4 3",
-            }}
-            labelStyle={{ fontSize: 10 }}
-            label={`T${t.index}`}
-            labelAlign="end"
-          />
-        ))}
+        {tacks.flatMap((t) => {
+          const stroke = t.direction === "port" ? "#d32f2f" : "#2e7d32";
+          const lineStyle = { stroke, strokeWidth: 2, strokeDasharray: "4 3" };
+          return [
+            <ChartsReferenceLine
+              key={`${t.index}-start`}
+              x={t.start_time_s}
+              lineStyle={lineStyle}
+              labelStyle={{ fontSize: 10 }}
+              label={`T${t.index} start`}
+              labelAlign="end"
+            />,
+            <ChartsReferenceLine
+              key={`${t.index}-end`}
+              x={t.end_time_s}
+              lineStyle={lineStyle}
+              labelStyle={{ fontSize: 10 }}
+              label={`T${t.index} end`}
+              labelAlign="start"
+            />,
+          ];
+        })}
       </LineChart>
     </Box>
   );
