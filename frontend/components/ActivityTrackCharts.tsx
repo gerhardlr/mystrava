@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import { LineChart } from "@mui/x-charts/LineChart";
 import type { TrackPoint } from "@/lib/api";
 
 // Plotly does not support SSR — load client-side only
@@ -83,23 +84,41 @@ function PolarTrace({
   );
 }
 
+function XYChart({
+  title,
+  xData,
+  yData,
+  yLabel,
+  color,
+}: {
+  title: string;
+  xData: number[];
+  yData: (number | null)[];
+  yLabel: string;
+  color: string;
+}) {
+  return (
+    <Box>
+      <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+        {title}
+      </Typography>
+      <LineChart
+        xAxis={[{ data: xData, label: "Time (s)", tickMinStep: 60 }]}
+        yAxis={[{ label: yLabel }]}
+        series={[{ data: yData, color, showMark: false, connectNulls: false }]}
+        height={260}
+        margin={{ left: 60, right: 20, top: 10, bottom: 40 }}
+      />
+    </Box>
+  );
+}
+
 export default function ActivityTrackCharts({ points }: Props) {
-  // Radius is normalised elapsed time so all three plots share the same scale
   const maxTime = points[points.length - 1]?.time_s ?? 1;
   const r = points.map((p) => p.time_s / maxTime);
-
-  // Bearing: 0–360° clockwise from north — maps directly onto polar angle
   const bearingTheta = points.map((p) => p.bearing_deg);
 
-  // Rotation: –180 to +180 → wrap into 0–360 so polar axis is continuous
-  const rotationTheta = points.map((p) =>
-    p.rotation_deg != null ? ((p.rotation_deg % 360) + 360) % 360 : null,
-  );
-
-  // Rate of turn: same wrapping as rotation
-  const rotSpeedTheta = points.map((p) =>
-    p.rot_speed_deg_min != null ? ((p.rot_speed_deg_min % 360) + 360) % 360 : null,
-  );
+  const timeAxis = points.map((p) => p.time_s);
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -110,19 +129,19 @@ export default function ActivityTrackCharts({ points }: Props) {
         color="#1976d2"
         angularLabel="heading °"
       />
-      <PolarTrace
+      <XYChart
         title="Rotation over time"
-        theta={rotationTheta}
-        r={r}
+        xData={timeAxis}
+        yData={points.map((p) => p.rotation_deg)}
+        yLabel="° (+ stbd)"
         color="#388e3c"
-        angularLabel="rotation °"
       />
-      <PolarTrace
+      <XYChart
         title="Rate of Turn over time"
-        theta={rotSpeedTheta}
-        r={r}
+        xData={timeAxis}
+        yData={points.map((p) => p.rot_speed_deg_min)}
+        yLabel="°/min"
         color="#f57c00"
-        angularLabel="ROT °/min"
       />
     </Box>
   );
