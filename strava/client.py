@@ -17,6 +17,7 @@ import requests
 from dotenv import load_dotenv
 
 from strava.auth import get_valid_token, run_oauth, save_tokens
+from strava.navigation import compute_track
 
 load_dotenv()
 
@@ -75,6 +76,34 @@ class StravaApiClient:
     def sailing(self) -> dict:
         return self._get("/api/activities/sailing")
 
+    def track(self, activity_id: int) -> list[dict]:
+        """
+        Fetch GPS + time streams for an activity directly from the Strava API
+        and compute bearing, rotation, and rate-of-turn for each point.
+        """
+        resp = requests.get(
+            f"https://www.strava.com/api/v3/activities/{activity_id}/streams",
+            headers={"Authorization": f"Bearer {self._token}"},
+            params={"keys": "latlng,time", "key_by_type": "true"},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        latlng = data["latlng"]["data"]
+        times = data["time"]["data"]
+        points = compute_track(latlng, times)
+        return [
+            {
+                "index": p.index,
+                "lat": p.lat,
+                "lon": p.lon,
+                "time_s": p.time_s,
+                "bearing_deg": round(p.bearing_deg, 1) if p.bearing_deg is not None else None,
+                "rotation_deg": round(p.rotation_deg, 1) if p.rotation_deg is not None else None,
+                "rot_speed_deg_min": round(p.rot_speed_deg_min, 2) if p.rot_speed_deg_min is not None else None,
+            }
+            for p in points
+        ]
+
 
 # ---------------------------------------------------------------------------
 # CLI entry point
@@ -96,6 +125,11 @@ def main():
 
     sub.add_parser("sailing", help="List sailing logbook")
 
+    p_track = sub.add_parser("track", help="Fetch GPS track with bearing/rotation/ROT")
+    p_track.add_argument("activity_id", type=int, help="Strava activity ID")
+    p_track.add_argument("--limit", type=int, default=20, metavar="N",
+                         help="Max points to print (default: 20, 0 = all)")
+
     args = parser.parse_args()
     client = StravaApiClient(base_url=args.base_url)
 
@@ -107,6 +141,10 @@ def main():
         print(json.dumps({"count": data["count"], "activities": activities}, indent=2))
     elif args.command == "sailing":
         print(json.dumps(client.sailing(), indent=2))
+    elif args.command == "track":
+        points = client.track(args.activity_id)
+        sample = points[:args.limit] if args.limit else points
+        print(json.dumps({"total_points": len(points), "points": sample}, indent=2))
 
 
 if __name__ == "__main__":
