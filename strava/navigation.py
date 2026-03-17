@@ -233,6 +233,12 @@ def detect_tacks(
 
         if valid and best_j is not None and cumulative >= min_angle:
             si, ei = i, best_j
+            net_angle = abs(delta_bearing(smooth[si] or 0, smooth[ei] or 0))
+            if net_angle < min_angle:
+                # Cumulative noise exceeded threshold but net bearing change did not
+                i += 1
+                continue
+
             speed_values = [p.speed_kn for p in points[si:ei + 1] if p.speed_kn is not None]
             avg_speed = sum(speed_values) / len(speed_values) if speed_values else None
 
@@ -241,7 +247,7 @@ def detect_tacks(
                 start_time_s=points[si].time_s,
                 end_time_s=points[ei].time_s,
                 duration_s=round(points[ei].time_s - points[si].time_s, 1),
-                angle_deg=round(abs(delta_bearing(smooth[si] or 0, smooth[ei] or 0)), 1),
+                angle_deg=round(net_angle, 1),
                 direction="starboard" if direction_sign == 1 else "port",
                 start_bearing_deg=round(smooth[si], 1) if smooth[si] is not None else None,
                 end_bearing_deg=round(smooth[ei], 1) if smooth[ei] is not None else None,
