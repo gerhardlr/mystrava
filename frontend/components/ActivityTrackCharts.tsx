@@ -207,11 +207,12 @@ export default function ActivityTrackCharts({ points, tacks }: Props) {
         tacks={tacks}
       />
       <XYChart
-        title="Rate of Turn over time"
+        title="Bearing over time"
         xData={timeAxis}
-        yData={points.map((p) => p.rot_speed_deg_min)}
-        yLabel="°/min"
-        color="#f57c00"
+        yData={points.map((p) => p.bearing_deg)}
+        yLabel="° (0=N)"
+        color="#1976d2"
+        tacks={tacks}
       />
     </Box>
   );
