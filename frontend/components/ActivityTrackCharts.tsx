@@ -4,13 +4,14 @@ import dynamic from "next/dynamic";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { LineChart } from "@mui/x-charts/LineChart";
-import type { TrackPoint } from "@/lib/api";
+import type { TrackPoint, Tack } from "@/lib/api";
 
 // Plotly does not support SSR — load client-side only
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
 interface Props {
   points: TrackPoint[];
+  tacks: Tack[];
 }
 
 const LAYOUT_BASE: Partial<Plotly.Layout> = {
@@ -18,70 +19,65 @@ const LAYOUT_BASE: Partial<Plotly.Layout> = {
     radialaxis: { visible: true, showticklabels: false },
     angularaxis: { direction: "clockwise", rotation: 90 },
   },
-  showlegend: false,
-  margin: { t: 20, b: 20, l: 40, r: 40 },
+  showlegend: true,
+  legend: { orientation: "h", y: -0.1 },
+  margin: { t: 20, b: 60, l: 40, r: 40 },
   paper_bgcolor: "transparent",
   plot_bgcolor: "transparent",
 };
 
 const CONFIG: Partial<Plotly.Config> = { displayModeBar: false, responsive: true };
 
-function PolarTrace({
-  title,
-  theta,
-  r,
-  color,
-  angularLabel,
-}: {
-  title: string;
+interface Segment {
   theta: (number | null)[];
   r: number[];
   color: string;
-  angularLabel?: string;
-}) {
-  return (
-    <Box>
-      <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-        {title}
-        {angularLabel && (
-          <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-            (angle = {angularLabel}, radius = time)
-          </Typography>
-        )}
-      </Typography>
-      <Plot
-        data={[
-          {
-            type: "scatterpolar",
-            theta,
-            r,
-            mode: "lines",
-            line: {
-              color,
-              width: 1.5,
-            },
-          } as Plotly.Data,
-          // Mark start and end points
-          {
-            type: "scatterpolar",
-            theta: [theta[0], theta[theta.length - 1]],
-            r: [r[0], r[r.length - 1]],
-            mode: "markers",
-            marker: {
-              color: ["#4caf50", "#f44336"],
-              size: 8,
-              symbol: ["circle", "square"],
-            },
-            hovertext: ["Start", "End"],
-            hoverinfo: "text",
-          } as Plotly.Data,
-        ]}
-        layout={LAYOUT_BASE as Plotly.Layout}
-        config={CONFIG}
-        style={{ width: "100%", height: 400 }}
-      />
-    </Box>
-  );
+  name: string;
+}
+
+function buildBearingSegments(points: TrackPoint[], tacks: Tack[], maxTime: number): Segment[] {
+  if (tacks.length === 0) {
+    return [{
+      theta: points.map((p) => p.bearing_deg),
+      r:     points.map((p) => p.time_s / maxTime),
+      color: "#1976d2",
+      name:  "Sailing",
+    }];
+  }
+
+  const sorted = [...tacks].sort((a, b) => a.start_time_s - b.start_time_s);
+  const segments: Segment[] = [];
+  let cursor = 0;
+
+  const slice = (from: number, to: number): Segment["theta"] =>
+    points.slice(from, to + 1).map((p) => p.bearing_deg);
+  const rSlice = (from: number, to: number): number[] =>
+    points.slice(from, to + 1).map((p) => p.time_s / maxTime);
+
+  for (const tack of sorted) {
+    const si = points.findIndex((p) => p.time_s >= tack.start_time_s);
+    const ei = points.findLastIndex((p) => p.time_s <= tack.end_time_s);
+    if (si === -1 || ei === -1 || ei < si) continue;
+
+    // Normal segment up to tack start (overlap by 1 point for a connected line)
+    if (si > cursor) {
+      segments.push({ theta: slice(cursor, si), r: rSlice(cursor, si), color: "#1976d2", name: "Sailing" });
+    }
+
+    // Tack segment
+    const color = tack.direction === "port" ? "#d32f2f" : "#2e7d32";
+    const label = tack.direction === "port" ? "Port tack" : "Stbd tack";
+    segments.push({ theta: slice(si, ei), r: rSlice(si, ei), color, name: label });
+
+    cursor = ei;
+  }
+
+  // Remaining normal segment after last tack
+  if (cursor < points.length - 1) {
+    segments.push({ theta: slice(cursor, points.length - 1), r: rSlice(cursor, points.length - 1), color: "#1976d2", name: "Sailing" });
+  }
+
+  return segments;
 }
 
 function XYChart({
@@ -113,22 +109,56 @@ function XYChart({
   );
 }
 
-export default function ActivityTrackCharts({ points }: Props) {
+export default function ActivityTrackCharts({ points, tacks }: Props) {
   const maxTime = points[points.length - 1]?.time_s ?? 1;
-  const r = points.map((p) => p.time_s / maxTime);
-  const bearingTheta = points.map((p) => p.bearing_deg);
-
+  const segments = buildBearingSegments(points, tacks, maxTime);
   const timeAxis = points.map((p) => p.time_s);
+
+  // Deduplicate legend entries (multiple normal/tack segments → one legend item each)
+  const seen = new Set<string>();
+  const traces: Plotly.Data[] = segments.map((seg) => {
+    const showlegend = !seen.has(seg.name);
+    seen.add(seg.name);
+    return {
+      type: "scatterpolar",
+      theta: seg.theta,
+      r: seg.r,
+      mode: "lines",
+      line: { color: seg.color, width: 1.5 },
+      name: seg.name,
+      showlegend,
+    } as Plotly.Data;
+  });
+
+  // Start / end markers
+  traces.push({
+    type: "scatterpolar",
+    theta: [points[0].bearing_deg, points[points.length - 1].bearing_deg],
+    r: [0, 1],
+    mode: "markers",
+    marker: { color: ["#4caf50", "#f44336"], size: 8, symbol: ["circle", "square"] },
+    hovertext: ["Start", "End"],
+    hoverinfo: "text",
+    showlegend: false,
+  } as Plotly.Data);
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <PolarTrace
-        title="Bearing over time"
-        theta={bearingTheta}
-        r={r}
-        color="#1976d2"
-        angularLabel="heading °"
-      />
+      <Box>
+        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+          Bearing over time
+          <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+            (angle = heading °, radius = time)
+          </Typography>
+        </Typography>
+        <Plot
+          data={traces}
+          layout={LAYOUT_BASE as Plotly.Layout}
+          config={CONFIG}
+          style={{ width: "100%", height: 420 }}
+        />
+      </Box>
+
       <XYChart
         title="Rotation over time"
         xData={timeAxis}

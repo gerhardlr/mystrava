@@ -65,7 +65,7 @@ export default async function ActivityDetailPage({ params }: Props) {
       </Box>
 
       <TacksTable tacks={tacks} />
-      <ActivityTrackCharts points={points} />
+      <ActivityTrackCharts points={points} tacks={tacks} />
     </Box>
   );
 }
