@@ -12,135 +12,118 @@ interface Props {
   points: TrackPoint[];
 }
 
-/** Bin bearings into N equal sectors and return counts. */
-function bearingHistogram(bearings: number[], sectors = 36): { theta: number[]; r: number[] } {
-  const width = 360 / sectors;
-  const counts = new Array(sectors).fill(0);
-  for (const b of bearings) {
-    if (b == null) continue;
-    counts[Math.floor(((b % 360) + 360) % 360 / width)]++;
-  }
-  const theta = Array.from({ length: sectors }, (_, i) => i * width);
-  return { theta, r: counts };
-}
-
-/** Bin rotations by bearing sector; separate port (–) and starboard (+). */
-function rotationRose(
-  points: TrackPoint[],
-  sectors = 36,
-): { theta: number[]; stbd: number[]; port: number[] } {
-  const width = 360 / sectors;
-  const stbd = new Array(sectors).fill(0);
-  const port = new Array(sectors).fill(0);
-  for (const p of points) {
-    if (p.bearing_deg == null || p.rotation_deg == null) continue;
-    const bin = Math.floor(((p.bearing_deg % 360) + 360) % 360 / width);
-    if (p.rotation_deg >= 0) stbd[bin] += p.rotation_deg;
-    else port[bin] += Math.abs(p.rotation_deg);
-  }
-  const theta = Array.from({ length: sectors }, (_, i) => i * width);
-  return { theta, stbd, port };
-}
-
 const LAYOUT_BASE: Partial<Plotly.Layout> = {
   polar: {
-    radialaxis: { visible: true, showticklabels: true },
+    radialaxis: { visible: true, showticklabels: false },
     angularaxis: { direction: "clockwise", rotation: 90 },
   },
-  showlegend: true,
-  margin: { t: 40, b: 40, l: 40, r: 40 },
+  showlegend: false,
+  margin: { t: 20, b: 20, l: 40, r: 40 },
   paper_bgcolor: "transparent",
   plot_bgcolor: "transparent",
 };
 
 const CONFIG: Partial<Plotly.Config> = { displayModeBar: false, responsive: true };
 
-export default function ActivityTrackCharts({ points }: Props) {
-  const bearings = points.map((p) => p.bearing_deg).filter((b): b is number => b != null);
-  const { theta: bTheta, r: bR } = bearingHistogram(bearings);
-  const { theta: rTheta, stbd, port } = rotationRose(points);
+function PolarTrace({
+  title,
+  theta,
+  r,
+  color,
+  angularLabel,
+}: {
+  title: string;
+  theta: (number | null)[];
+  r: number[];
+  color: string;
+  angularLabel?: string;
+}) {
+  return (
+    <Box>
+      <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+        {title}
+        {angularLabel && (
+          <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+            (angle = {angularLabel}, radius = time)
+          </Typography>
+        )}
+      </Typography>
+      <Plot
+        data={[
+          {
+            type: "scatterpolar",
+            theta,
+            r,
+            mode: "lines",
+            line: {
+              color,
+              width: 1.5,
+            },
+          } as Plotly.Data,
+          // Mark start and end points
+          {
+            type: "scatterpolar",
+            theta: [theta[0], theta[theta.length - 1]],
+            r: [r[0], r[r.length - 1]],
+            mode: "markers",
+            marker: {
+              color: ["#4caf50", "#f44336"],
+              size: 8,
+              symbol: ["circle", "square"],
+            },
+            hovertext: ["Start", "End"],
+            hoverinfo: "text",
+          } as Plotly.Data,
+        ]}
+        layout={LAYOUT_BASE as Plotly.Layout}
+        config={CONFIG}
+        style={{ width: "100%", height: 400 }}
+      />
+    </Box>
+  );
+}
 
-  // ROT scatter: bearing vs |rate of turn|
-  const rotPoints = points.filter((p) => p.bearing_deg != null && p.rot_speed_deg_min != null);
-  const rotTheta = rotPoints.map((p) => p.bearing_deg as number);
-  const rotR     = rotPoints.map((p) => Math.abs(p.rot_speed_deg_min as number));
-  const rotColor = rotPoints.map((p) =>
-    (p.rotation_deg ?? 0) >= 0 ? "#1a9850" : "#d73027",
+export default function ActivityTrackCharts({ points }: Props) {
+  // Radius is normalised elapsed time so all three plots share the same scale
+  const maxTime = points[points.length - 1]?.time_s ?? 1;
+  const r = points.map((p) => p.time_s / maxTime);
+
+  // Bearing: 0–360° clockwise from north — maps directly onto polar angle
+  const bearingTheta = points.map((p) => p.bearing_deg);
+
+  // Rotation: –180 to +180 → wrap into 0–360 so polar axis is continuous
+  const rotationTheta = points.map((p) =>
+    p.rotation_deg != null ? ((p.rotation_deg % 360) + 360) % 360 : null,
+  );
+
+  // Rate of turn: same wrapping as rotation
+  const rotSpeedTheta = points.map((p) =>
+    p.rot_speed_deg_min != null ? ((p.rot_speed_deg_min % 360) + 360) % 360 : null,
   );
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
-
-      {/* 1. Bearing compass rose */}
-      <Box>
-        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-          Bearing Distribution (compass rose)
-        </Typography>
-        <Plot
-          data={[{
-            type: "barpolar",
-            theta: bTheta,
-            r: bR,
-            width: 360 / 36,
-            marker: { color: "#1976d2", opacity: 0.8 },
-            name: "Heading",
-          } as Plotly.Data]}
-          layout={{ ...LAYOUT_BASE, title: "" } as Plotly.Layout}
-          config={CONFIG}
-          style={{ width: "100%", height: 380 }}
-        />
-      </Box>
-
-      {/* 2. Rotation rose — port vs starboard by heading sector */}
-      <Box>
-        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-          Cumulative Rotation by Heading (port / starboard)
-        </Typography>
-        <Plot
-          data={[
-            {
-              type: "barpolar",
-              theta: rTheta,
-              r: stbd,
-              width: 360 / 36,
-              marker: { color: "#388e3c", opacity: 0.75 },
-              name: "Starboard (+)",
-            } as Plotly.Data,
-            {
-              type: "barpolar",
-              theta: rTheta,
-              r: port,
-              width: 360 / 36,
-              marker: { color: "#d32f2f", opacity: 0.75 },
-              name: "Port (−)",
-            } as Plotly.Data,
-          ]}
-          layout={{ ...LAYOUT_BASE, title: "" } as Plotly.Layout}
-          config={CONFIG}
-          style={{ width: "100%", height: 380 }}
-        />
-      </Box>
-
-      {/* 3. ROT scatter — magnitude by bearing, coloured by direction */}
-      <Box>
-        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-          Rate of Turn by Bearing (°/min)
-        </Typography>
-        <Plot
-          data={[{
-            type: "scatterpolar",
-            theta: rotTheta,
-            r: rotR,
-            mode: "markers",
-            marker: { color: rotColor, size: 4, opacity: 0.6 },
-            name: "ROT",
-          } as Plotly.Data]}
-          layout={{ ...LAYOUT_BASE, title: "" } as Plotly.Layout}
-          config={CONFIG}
-          style={{ width: "100%", height: 380 }}
-        />
-      </Box>
-
+      <PolarTrace
+        title="Bearing over time"
+        theta={bearingTheta}
+        r={r}
+        color="#1976d2"
+        angularLabel="heading °"
+      />
+      <PolarTrace
+        title="Rotation over time"
+        theta={rotationTheta}
+        r={r}
+        color="#388e3c"
+        angularLabel="rotation °"
+      />
+      <PolarTrace
+        title="Rate of Turn over time"
+        theta={rotSpeedTheta}
+        r={r}
+        color="#f57c00"
+        angularLabel="ROT °/min"
+      />
     </Box>
   );
 }
