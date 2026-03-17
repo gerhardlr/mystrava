@@ -12,7 +12,7 @@ export default function PoweredByStrava() {
       : "/strava-logos/api_logo_pwrdBy_strava_horiz_black.svg";
 
   return (
-    <Box sx={{ p: 2, display: "flex", justifyContent: "flex-end" }}>
+    <Box sx={{ p: 2, display: "flex", justifyContent: "flex-start" }}>
       <a href="https://www.strava.com" target="_blank" rel="noopener noreferrer">
         <Image src={logo} alt="Powered by Strava" width={150} height={40} />
       </a>
