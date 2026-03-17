@@ -18,9 +18,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 
+import requests
 import pandas as pd
 from strava.api import fetch_all_activities
 from strava.export import activity_to_row, to_dataframe, hours_after_sunset
+from strava.navigation import compute_track
 
 KM_TO_NM = 1 / 1.852
 
@@ -103,6 +105,40 @@ async def get_sailing_activities(authorization: Optional[str] = Header(None)):
         return {
             "activities": logbook.to_dict(orient="records"),
             "count": len(logbook),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/api/activities/{activity_id}/track")
+async def get_activity_track(activity_id: int, authorization: Optional[str] = Header(None)):
+    """Return GPS track with bearing, rotation, and rate-of-turn for a single activity."""
+    token = _extract_token(authorization)
+    try:
+        resp = requests.get(
+            f"https://www.strava.com/api/v3/activities/{activity_id}/streams",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"keys": "latlng,time", "key_by_type": "true"},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        latlng = data["latlng"]["data"]
+        times  = data["time"]["data"]
+        points = compute_track(latlng, times)
+        return {
+            "activity_id": activity_id,
+            "points": [
+                {
+                    "index":             p.index,
+                    "lat":               p.lat,
+                    "lon":               p.lon,
+                    "time_s":            p.time_s,
+                    "bearing_deg":       round(p.bearing_deg, 1)       if p.bearing_deg       is not None else None,
+                    "rotation_deg":      round(p.rotation_deg, 1)      if p.rotation_deg      is not None else None,
+                    "rot_speed_deg_min": round(p.rot_speed_deg_min, 2) if p.rot_speed_deg_min is not None else None,
+                }
+                for p in points
+            ],
         }
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

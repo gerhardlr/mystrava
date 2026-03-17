@@ -34,6 +34,21 @@ export interface SailingActivity {
   to?: string | null;
 }
 
+export interface TrackPoint {
+  index: number;
+  lat: number;
+  lon: number;
+  time_s: number;
+  bearing_deg: number | null;
+  rotation_deg: number | null;
+  rot_speed_deg_min: number | null;
+}
+
+export interface TrackResponse {
+  activity_id: number;
+  points: TrackPoint[];
+}
+
 export interface ActivitiesResponse {
   activities: Activity[];
   count: number;
@@ -67,4 +82,8 @@ export function fetchActivities(accessToken: string): Promise<ActivitiesResponse
 
 export function fetchSailingActivities(accessToken: string): Promise<SailingResponse> {
   return apiFetch<SailingResponse>("/api/activities/sailing", accessToken);
+}
+
+export function fetchActivityTrack(id: number, accessToken: string): Promise<TrackResponse> {
+  return apiFetch<TrackResponse>(`/api/activities/${id}/track`, accessToken);
 }

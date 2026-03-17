@@ -4,6 +4,7 @@ import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid2";
 import Typography from "@mui/material/Typography";
+import { useRouter } from "next/navigation";
 import type { SailingActivity } from "@/lib/api";
 import { ActivityRow } from "@/lib/activity-values";
 
@@ -40,6 +41,7 @@ export default function SailingLogbook({
 }: {
   activities: SailingActivity[];
 }) {
+  const router = useRouter();
   const activityRows = activities.map((a, i) =>
     ActivityRow.fromSailingActivity(a, i)
   );
@@ -80,8 +82,12 @@ export default function SailingLogbook({
         columns={columns}
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-        sx={{ height: "100%" }}
-        disableRowSelectionOnClick
+        onRowClick={(params) => {
+          if (params.row.strava_id) {
+            router.push(`/dashboard/sailing/${params.row.strava_id}`);
+          }
+        }}
+        sx={{ height: "100%", "& .MuiDataGrid-row": { cursor: "pointer" } }}
       />
     </Box>
   );
