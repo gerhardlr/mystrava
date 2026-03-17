@@ -22,7 +22,7 @@ import requests
 import pandas as pd
 from strava.api import fetch_all_activities
 from strava.export import activity_to_row, to_dataframe, hours_after_sunset
-from strava.navigation import compute_track
+from strava.navigation import compute_track, detect_tacks
 
 KM_TO_NM = 1 / 1.852
 
@@ -118,13 +118,15 @@ async def get_activity_track(activity_id: int, authorization: Optional[str] = He
         resp = requests.get(
             f"https://www.strava.com/api/v3/activities/{activity_id}/streams",
             headers={"Authorization": f"Bearer {token}"},
-            params={"keys": "latlng,time", "key_by_type": "true"},
+            params={"keys": "latlng,time,velocity_smooth", "key_by_type": "true"},
         )
         resp.raise_for_status()
         data = resp.json()
-        latlng = data["latlng"]["data"]
-        times  = data["time"]["data"]
-        points = compute_track(latlng, times)
+        latlng     = data["latlng"]["data"]
+        times      = data["time"]["data"]
+        velocities = data.get("velocity_smooth", {}).get("data")
+        points     = compute_track(latlng, times, velocities)
+        tacks      = detect_tacks(points)
         return {
             "activity_id": activity_id,
             "points": [
@@ -136,8 +138,25 @@ async def get_activity_track(activity_id: int, authorization: Optional[str] = He
                     "bearing_deg":       round(p.bearing_deg, 1)       if p.bearing_deg       is not None else None,
                     "rotation_deg":      round(p.rotation_deg, 1)      if p.rotation_deg      is not None else None,
                     "rot_speed_deg_min": round(p.rot_speed_deg_min, 2) if p.rot_speed_deg_min is not None else None,
+                    "speed_kn":          round(p.speed_kn, 2)          if p.speed_kn          is not None else None,
                 }
                 for p in points
+            ],
+            "tacks": [
+                {
+                    "index":             t.index,
+                    "start_time_s":      t.start_time_s,
+                    "end_time_s":        t.end_time_s,
+                    "duration_s":        t.duration_s,
+                    "angle_deg":         t.angle_deg,
+                    "direction":         t.direction,
+                    "start_bearing_deg": t.start_bearing_deg,
+                    "end_bearing_deg":   t.end_bearing_deg,
+                    "avg_speed_kn":      t.avg_speed_kn,
+                    "start_speed_kn":    t.start_speed_kn,
+                    "end_speed_kn":      t.end_speed_kn,
+                }
+                for t in tacks
             ],
         }
     except Exception as exc:

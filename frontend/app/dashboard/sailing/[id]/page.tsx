@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { fetchActivityTrack } from "@/lib/api";
 import ActivityTrackCharts from "@/components/ActivityTrackCharts";
+import TacksTable from "@/components/TacksTable";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import MuiLink from "@mui/material/Link";
@@ -19,10 +20,11 @@ export default async function ActivityDetailPage({ params }: Props) {
   const accessToken = (session as { accessToken?: string })?.accessToken;
   if (!accessToken) return <Typography>Not authenticated.</Typography>;
 
-  let points;
+  let points, tacks;
   try {
     const data = await fetchActivityTrack(activityId, accessToken);
     points = data.points;
+    tacks  = data.tacks;
   } catch {
     return (
       <Box>
@@ -62,6 +64,7 @@ export default async function ActivityDetailPage({ params }: Props) {
         </Typography>
       </Box>
 
+      <TacksTable tacks={tacks} />
       <ActivityTrackCharts points={points} />
     </Box>
   );

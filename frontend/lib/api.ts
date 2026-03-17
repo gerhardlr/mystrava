@@ -42,11 +42,27 @@ export interface TrackPoint {
   bearing_deg: number | null;
   rotation_deg: number | null;
   rot_speed_deg_min: number | null;
+  speed_kn: number | null;
+}
+
+export interface Tack {
+  index: number;
+  start_time_s: number;
+  end_time_s: number;
+  duration_s: number;
+  angle_deg: number;
+  direction: "port" | "starboard";
+  start_bearing_deg: number | null;
+  end_bearing_deg: number | null;
+  avg_speed_kn: number | null;
+  start_speed_kn: number | null;
+  end_speed_kn: number | null;
 }
 
 export interface TrackResponse {
   activity_id: number;
   points: TrackPoint[];
+  tacks: Tack[];
 }
 
 export interface ActivitiesResponse {
