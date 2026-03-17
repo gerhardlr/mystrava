@@ -4,9 +4,8 @@ import PoweredByStrava from "@/components/PoweredByStrava";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <DashboardLayout>
+    <DashboardLayout slots={{ sidebarFooter: PoweredByStrava }}>
       <PageContainer>{children}</PageContainer>
-      <PoweredByStrava />
     </DashboardLayout>
   );
 }
