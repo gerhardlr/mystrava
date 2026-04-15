@@ -114,26 +114,51 @@ class StravaApiClient:
         ]
 
 
+    def _strava_get(self, path: str, **params) -> dict | list:
+        """GET directly from the Strava API (bypasses the local FastAPI)."""
+        resp = requests.get(
+            f"https://www.strava.com/api/v3{path}",
+            headers={"Authorization": f"Bearer {self._token}"},
+            params=params,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def _fetch_sailing_activities(self) -> list[dict]:
+        """Fetch all Sail activities directly from the Strava API."""
+        activities = []
+        page = 1
+        while True:
+            batch = self._strava_get("/athlete/activities", per_page=100, page=page)
+            if not batch:
+                break
+            activities.extend(batch)
+            if len(batch) < 100:
+                break
+            page += 1
+        return [a for a in activities if a.get("sport_type") == "Sail" or a.get("type") == "Sail"]
+
     def export_gpx_all(self, out_dir: str = "gpx_exports") -> list[str]:
         """
         Export all sailing activities as individual GPX files.
 
-        Fetches the sailing logbook, then downloads GPS streams for each
-        activity and writes one .gpx file per activity to ``out_dir``.
+        Fetches sailing activities directly from the Strava API (no local
+        server required), then downloads GPS streams for each activity and
+        writes one .gpx file per activity to ``out_dir``.
 
         Returns the list of file paths written.
         """
         out_path = pathlib.Path(out_dir)
         out_path.mkdir(parents=True, exist_ok=True)
 
-        data = self.sailing()
-        activities = data.get("activities", [])
+        activities = self._fetch_sailing_activities()
+        print(f"Found {len(activities)} sailing activities")
         written: list[str] = []
 
         for idx, activity in enumerate(activities, 1):
             activity_id = activity.get("id")
             name = activity.get("name", f"activity_{activity_id}")
-            start = activity.get("start_date_local", "")
+            start = activity.get("start_date_local") or activity.get("start_date", "")
 
             if not activity_id:
                 print(f"  [{idx}/{len(activities)}] Skipping '{name}' — no id")
