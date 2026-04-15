@@ -3,15 +3,20 @@
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid2";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import DownloadIcon from "@mui/icons-material/Download";
 import { useRouter } from "next/navigation";
 import type { SailingActivity } from "@/lib/api";
+import { downloadActivityGpx } from "@/lib/api";
 import { ActivityRow } from "@/lib/activity-values";
 
 export { formatDate, formatTime, formatTo } from "@/lib/format";
 import { formatMonthYear } from "@/lib/format";
 
-const columns: GridColDef[] = [
+function makeColumns(accessToken: string | undefined): GridColDef[] {
+  return [
   { field: "start_date_local", headerName: "Date",         width: 170 },
   {
     field: "name", headerName: "Name", flex: 1, minWidth: 160,
@@ -25,7 +30,28 @@ const columns: GridColDef[] = [
   { field: "after_sunset",     headerName: "After Sunset", width: 120 },
   { field: "max_speed",        headerName: "Max Speed",    width: 110 },
   { field: "avg_speed",        headerName: "Avg Speed",    width: 110 },
-];
+  {
+    field: "_gpx",
+    headerName: "",
+    width: 50,
+    sortable: false,
+    disableColumnMenu: true,
+    renderCell: (params) =>
+      accessToken && params.row.strava_id ? (
+        <Tooltip title="Download GPX">
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              downloadActivityGpx(params.row.strava_id, accessToken).catch(console.error);
+            }}
+          >
+            <DownloadIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      ) : null,
+  },
+];};
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
@@ -38,10 +64,13 @@ function StatCard({ label, value }: { label: string; value: string }) {
 
 export default function SailingLogbook({
   activities,
+  accessToken,
 }: {
   activities: SailingActivity[];
+  accessToken?: string;
 }) {
   const router = useRouter();
+  const columns = makeColumns(accessToken);
   const activityRows = activities.map((a, i) =>
     ActivityRow.fromSailingActivity(a, i)
   );

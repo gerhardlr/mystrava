@@ -17,12 +17,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 import requests
 import pandas as pd
 from strava.api import fetch_all_activities
 from strava.export import activity_to_row, to_dataframe, hours_after_sunset
 from strava.navigation import compute_track, detect_tacks
+from strava.gpx import write_gpx
 
 KM_TO_NM = 1 / 1.852
 
@@ -159,5 +161,60 @@ async def get_activity_track(activity_id: int, authorization: Optional[str] = He
                 for t in tacks
             ],
         }
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/api/activities/{activity_id}/gpx")
+async def get_activity_gpx(activity_id: int, authorization: Optional[str] = Header(None)):
+    """Return a GPX file for a single activity, ready for download."""
+    token = _extract_token(authorization)
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+
+        act_resp = requests.get(
+            f"https://www.strava.com/api/v3/activities/{activity_id}",
+            headers=headers,
+        )
+        act_resp.raise_for_status()
+        act = act_resp.json()
+        name  = act.get("name", f"activity_{activity_id}")
+        start = act.get("start_date_local") or act.get("start_date", "")
+
+        streams_resp = requests.get(
+            f"https://www.strava.com/api/v3/activities/{activity_id}/streams",
+            headers=headers,
+            params={"keys": "latlng,time,velocity_smooth,altitude", "key_by_type": "true"},
+        )
+        streams_resp.raise_for_status()
+        streams = streams_resp.json()
+
+        latlng     = streams.get("latlng", {}).get("data", [])
+        times_s    = streams.get("time", {}).get("data", [])
+        velocities = streams.get("velocity_smooth", {}).get("data")
+        elevations = streams.get("altitude", {}).get("data")
+
+        if not latlng or not times_s:
+            raise HTTPException(status_code=404, detail="No GPS data for this activity")
+
+        gpx_xml = write_gpx(
+            name=name,
+            start_date_local=start,
+            latlng=latlng,
+            times_s=times_s,
+            velocities_ms=velocities,
+            elevations_m=elevations,
+        )
+
+        safe_name = "".join(c if c.isalnum() or c in "._- " else "_" for c in name)
+        filename  = f"{start[:10]}_{safe_name}_{activity_id}.gpx"
+
+        return Response(
+            content=gpx_xml,
+            media_type="application/gpx+xml",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

@@ -103,3 +103,20 @@ export function fetchSailingActivities(accessToken: string): Promise<SailingResp
 export function fetchActivityTrack(id: number, accessToken: string): Promise<TrackResponse> {
   return apiFetch<TrackResponse>(`/api/activities/${id}/track`, accessToken);
 }
+
+export async function downloadActivityGpx(id: number, accessToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/activities/${id}/gpx`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`GPX download failed: ${res.status}`);
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match ? match[1] : `activity_${id}.gpx`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
