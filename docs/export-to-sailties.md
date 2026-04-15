@@ -44,24 +44,26 @@ Done — 12 file(s) written to .exports/sailties_import/
 
 ---
 
-## Step 2 — Import into Sailties
+## Step 2 — Import into Sailties (mobile app only)
 
-### On iOS / Android
+> **Note:** GPX import is only available in the Sailties mobile app (iOS / Android),
+> added in app version 2.10.0. The website (sailties.net) is read-only and does
+> not have an import button.
+
+### Copy GPX files to your phone
+
+Transfer the exported `.gpx` files from your computer to your phone — via
+AirDrop, Google Drive, iCloud, USB, or any file sharing method you prefer.
+
+### Import steps (iOS / Android)
 
 1. Open the **Sailties** app
-2. Tap **+** to add a new log entry
-3. Select **Import GPX**
-4. Navigate to the folder where the `.gpx` files were saved
-5. Select one file at a time and confirm the import
-6. Repeat for each activity
-
-### On the Sailties website (sailties.net)
-
-1. Log in to [sailties.net](https://sailties.net)
-2. Go to **My Logs** → **Import**
-3. Click **Choose File** and select a `.gpx` file
-4. Review the activity details and save
-5. Repeat for each file
+2. Go to the **My Sailing** tab
+3. Tap **+** (Add Voyage)
+4. When prompted how to add the voyage, select **Import a GPX file**
+5. Navigate to the `.gpx` file on your device and select it
+6. The app imports the track and creates a voyage entry
+7. Repeat for each activity
 
 ---
 
