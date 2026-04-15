@@ -16,9 +16,13 @@ import sys
 import requests
 from dotenv import load_dotenv
 
+import pathlib
+import time as _time
+
 from strava.auth import get_valid_token, run_oauth, save_tokens
 from strava.navigation import compute_track
 from strava.export import save_track_xlsx
+from strava.gpx import write_gpx
 
 load_dotenv()
 
@@ -77,21 +81,25 @@ class StravaApiClient:
     def sailing(self) -> dict:
         return self._get("/api/activities/sailing")
 
+    def _fetch_streams(self, activity_id: int, keys: str = "latlng,time,velocity_smooth,altitude") -> dict:
+        resp = requests.get(
+            f"https://www.strava.com/api/v3/activities/{activity_id}/streams",
+            headers={"Authorization": f"Bearer {self._token}"},
+            params={"keys": keys, "key_by_type": "true"},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     def track(self, activity_id: int) -> list[dict]:
         """
         Fetch GPS + time streams for an activity directly from the Strava API
         and compute bearing, rotation, and rate-of-turn for each point.
         """
-        resp = requests.get(
-            f"https://www.strava.com/api/v3/activities/{activity_id}/streams",
-            headers={"Authorization": f"Bearer {self._token}"},
-            params={"keys": "latlng,time", "key_by_type": "true"},
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        data = self._fetch_streams(activity_id)
         latlng = data["latlng"]["data"]
         times = data["time"]["data"]
-        points = compute_track(latlng, times)
+        velocities = data.get("velocity_smooth", {}).get("data")
+        points = compute_track(latlng, times, velocities)
         return [
             {
                 "index": p.index,
@@ -104,6 +112,70 @@ class StravaApiClient:
             }
             for p in points
         ]
+
+
+    def export_gpx_all(self, out_dir: str = "gpx_exports") -> list[str]:
+        """
+        Export all sailing activities as individual GPX files.
+
+        Fetches the sailing logbook, then downloads GPS streams for each
+        activity and writes one .gpx file per activity to ``out_dir``.
+
+        Returns the list of file paths written.
+        """
+        out_path = pathlib.Path(out_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+
+        data = self.sailing()
+        activities = data.get("activities", [])
+        written: list[str] = []
+
+        for idx, activity in enumerate(activities, 1):
+            activity_id = activity.get("id")
+            name = activity.get("name", f"activity_{activity_id}")
+            start = activity.get("start_date_local", "")
+
+            if not activity_id:
+                print(f"  [{idx}/{len(activities)}] Skipping '{name}' — no id")
+                continue
+
+            print(f"  [{idx}/{len(activities)}] {name} ({activity_id}) ...", end=" ", flush=True)
+            try:
+                streams = self._fetch_streams(activity_id)
+                latlng = streams.get("latlng", {}).get("data", [])
+                times_s = streams.get("time", {}).get("data", [])
+                velocities = streams.get("velocity_smooth", {}).get("data")
+                elevations = streams.get("altitude", {}).get("data")
+
+                if not latlng or not times_s:
+                    print("no GPS data — skipped")
+                    continue
+
+                gpx_xml = write_gpx(
+                    name=name,
+                    start_date_local=start,
+                    latlng=latlng,
+                    times_s=times_s,
+                    velocities_ms=velocities,
+                    elevations_m=elevations,
+                )
+
+                # Safe filename: replace characters not valid in filenames
+                safe_name = "".join(c if c.isalnum() or c in "._- " else "_" for c in name)
+                filename = f"{start[:10]}_{safe_name}_{activity_id}.gpx"
+                filepath = out_path / filename
+                filepath.write_text(gpx_xml, encoding="utf-8")
+                written.append(str(filepath))
+                print(f"saved → {filename}")
+
+            except Exception as exc:  # noqa: BLE001
+                print(f"ERROR: {exc}")
+
+            # Strava rate limit: 100 requests/15 min — small delay between calls
+            if idx < len(activities):
+                _time.sleep(0.5)
+
+        return written
 
 
 # ---------------------------------------------------------------------------
@@ -136,6 +208,10 @@ def main():
     p_export.add_argument("--out", default=None, metavar="FILE",
                           help="Output .xlsx path (default: track_<id>.xlsx)")
 
+    p_gpx = sub.add_parser("export-gpx", help="Export all sailing activities as GPX files")
+    p_gpx.add_argument("--out-dir", default="gpx_exports", metavar="DIR",
+                       help="Output directory (default: gpx_exports/)")
+
     args = parser.parse_args()
     client = StravaApiClient(base_url=args.base_url)
 
@@ -155,6 +231,10 @@ def main():
         points = client.track(args.activity_id)
         out = args.out or f"track_{args.activity_id}.xlsx"
         save_track_xlsx(points, out)
+    elif args.command == "export-gpx":
+        print(f"Exporting sailing activities to {args.out_dir}/")
+        files = client.export_gpx_all(out_dir=args.out_dir)
+        print(f"\nDone — {len(files)} file(s) written to {args.out_dir}/")
 
 
 if __name__ == "__main__":
