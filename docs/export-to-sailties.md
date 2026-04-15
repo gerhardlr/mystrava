@@ -74,3 +74,20 @@ Done — 12 file(s) written to .exports/sailties_import/
 - If an activity has no GPS data recorded it will be skipped automatically
 - Strava's API rate limit is 100 requests per 15 minutes; a small delay is
   added between requests automatically if you have many activities
+
+---
+
+## Bulk Import Limitations
+
+**Sailties does not support bulk import or a public API.** Each GPX file must be
+imported manually, one at a time, through the app. There is no way to script or
+automate uploads into Sailties.
+
+If you have a large backlog of activities, the options are:
+
+- **Import manually one by one** using the steps above
+- **Contact Sailties support** at [sailties.net](https://sailties.net) and ask
+  about a data migration service — they have done this for sailing schools
+  onboarding large archives
+- **Use an alternative platform** that supports bulk GPX import, such as
+  [Navionics](https://www.navionics.com) or [OpenCPN](https://opencpn.org)
